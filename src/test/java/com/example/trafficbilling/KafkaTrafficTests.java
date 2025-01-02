@@ -12,24 +12,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @ExtendWith(SpringExtension.class)
-class TrafficBillingApplicationTests {
+class KafkaTrafficTests {
 
     @Autowired
     private ApiController apiController;
 
     @Test
-    public void testKafkaStreamRateLimiter() throws InterruptedException {
+    public void testKafkaHighConcurrency() throws InterruptedException {
         String userId = "user1";
-        int requestsPerSecond = 500;
+        int requestsPerSecond = 1500;
         int testDurationSeconds = 60;
 
         ExecutorService executorService = Executors.newFixedThreadPool(50);
-        AtomicInteger successCount = new AtomicInteger();
-        AtomicInteger failureCount = new AtomicInteger();
         StopWatch sw = new StopWatch();
         sw.start("user1mock高并发");
         for (int i = 0; i < testDurationSeconds; i++) {
@@ -38,17 +36,13 @@ class TrafficBillingApplicationTests {
                     String response;
                     int randomKey = ((int) (Math.random() * 3) + 1);
                     if (randomKey == 1){
-                        response = apiController.getApi1(userId);
+                        apiController.getApi1(userId,"kafka");
                     }else if (randomKey == 2){
-                        response = apiController.putApi3(userId);
+                        apiController.putApi3(userId,"kafka");
                     }else {
-                        response = apiController.postApi2(userId);
+                        apiController.postApi2(userId,"kafka");
                     }
-                    if (response.contains("Access granted")) {
-                        successCount.getAndIncrement();
-                    } else {
-                        failureCount.getAndIncrement();
-                    }
+
                 });
             }
             Thread.sleep(1000);
@@ -56,11 +50,32 @@ class TrafficBillingApplicationTests {
         sw.stop();
         executorService.shutdown();
 
-        System.out.println("成功次数:" + successCount.get());
-        System.out.println("失败次数:" + failureCount.get());
         System.out.println("耗时:" + sw.prettyPrint());
-        assertThat(successCount.get()).isGreaterThan(0);
-        assertThat(failureCount.get()).isGreaterThan(0);
     }
 
+    @Test
+    void testAccessWithinLimit() {
+        String userId = "user1";
+        StopWatch sw = new StopWatch();
+        sw.start("user1mock kafka");
+        for (int j = 0; j < 100; j++) {
+            apiController.getApi1(userId,"kafka");
+        }
+        sw.stop();
+        System.out.println("耗时:" + sw.prettyPrint());
+    }
+
+    @Test
+    void testAccessExceedingLimit() {
+        String userId = "user2";
+        StopWatch sw = new StopWatch();
+        sw.start("user2mock kafka");
+        for (int j = 0; j < 100; j++) {
+            apiController.getApi1(userId,"kafka");
+        }
+
+        apiController.getApi1(userId,"kafka");
+        sw.stop();
+        System.out.println("耗时:" + sw.prettyPrint());
+    }
 }

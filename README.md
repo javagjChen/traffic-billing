@@ -1,7 +1,8 @@
 # Kafka Streams 限流器
 
 ## 概述
-本项目展示了一个基于 **Apache Kafka Streams**、**Redis** 和 **Spring Boot** 的限流系统。该系统确保用户在每分钟内不能超过预定义的 API 请求限制。系统利用 Kafka Streams 进行实时流量分析，并使用 Redis 存储限流数据。
+本项目展示了一个基于 **Apache Kafka Streams**、**Redis** 和 **Spring Boot** 的限流系统。该系统确保用户在每分钟内不能超过预定义的 API 请求限制。
+系统基于Kafka Streams、Redis和JVM提供不同方式的限流控制。
 
 ---
 
@@ -53,8 +54,8 @@
 
 ### 克隆仓库
 ```bash
-git clone https://github.com/your-repo/kafka-streams-rate-limiter.git
-cd kafka-streams-rate-limiter
+git clone https://github.com/javagjChen/traffic-billing.git
+cd traffic-billing
 ```
 
 ### 构建项目
@@ -72,7 +73,7 @@ mvn spring-boot:run
 
 ### 限流规则
 - 默认值：每用户每 API 每分钟 10,000 次请求。
-- 如需修改规则，可在 `ApiController` 的逻辑中进行调整。
+- 如需修改规则，可在 `application.yml` 的逻辑中进行调整。
 
 ---
 
@@ -109,7 +110,7 @@ mvn test
 
 ## 示例 API 接口
 
-### `GET /api/api1`
+### `GET /api/api1/{type}`
 - **请求**：
   ```bash
   curl -X GET "http://localhost:8080/api/api1?userId=user1"
@@ -137,13 +138,11 @@ mvn test
   - 使用 Kafka Streams 的状态存储检查实时聚合。
 - **Redis 指标**：
   - 使用 Redis CLI 查看键值对和过期时间。
-  ```bash
-  redis-cli
-  keys rate_limiter:*
-  ```
-
 
 ---
+
+## 额外
+基于redis额外写了个可以限流的自定义注解
 
 ## 联系方式
 如有问题或疑问，请联系 [cguanjie1123@gmail.com]。

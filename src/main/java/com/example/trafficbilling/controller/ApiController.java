@@ -1,50 +1,42 @@
 package com.example.trafficbilling.controller;
 
-import com.example.trafficbilling.service.RedisTrafficStorage;
-import com.example.trafficbilling.service.RequestEventProducer;
+import com.example.trafficbilling.limiter.LimitType;
+import com.example.trafficbilling.limiter.RateLimit;
+import com.example.trafficbilling.service.ITrafficService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
 public class ApiController {
 
     @Autowired
-    private RedisTrafficStorage redisStorage;
-    @Autowired
-    private RequestEventProducer producer;
+    private Map<String, ITrafficService> serviceMap;
 
 
-    @GetMapping("/api1")
-    public String getApi1(@RequestParam String userId) {
-        return handleRequest(userId, "api1");
+    @GetMapping("/api1/{type}")
+    public String getApi1(@RequestParam String userId,@PathVariable String type) {
+        ITrafficService iTrafficService = serviceMap.get(type);
+        return iTrafficService.handleRequest(userId, "api1");
     }
 
-    @PostMapping("/api2")
-    public String postApi2(@RequestParam String userId) {
-        return handleRequest(userId, "api2");
+    @PostMapping("/api2{type}")
+    public String postApi2(@RequestParam String userId,@PathVariable String type) {
+        ITrafficService iTrafficService = serviceMap.get(type);
+        return iTrafficService.handleRequest(userId, "api2");
     }
 
-    @PutMapping("/api3")
-    public String putApi3(@RequestParam String userId) {
-        return handleRequest(userId, "api3");
+    @PutMapping("/api3{type}")
+    public String putApi3(@RequestParam String userId,@PathVariable String type) {
+        ITrafficService iTrafficService = serviceMap.get(type);
+        return iTrafficService.handleRequest(userId, "api3");
     }
 
-    private String handleRequest(String userId, String apiKey) {
-        String userApiKey = userId + ":" + apiKey;
-        long windowStartMillis = System.currentTimeMillis();
-        // 转换为分钟数
-        long minutesSinceEpoch = Duration.ofMillis(windowStartMillis).toMinutes();
-
-        // 每分钟最大处理10000个请求
-        int maxRequestsPerMinute = 100;
-        Long requestCount = redisStorage.getAndIncrementRequestCount(userApiKey, String.valueOf(minutesSinceEpoch),maxRequestsPerMinute);
-        if (requestCount >= maxRequestsPerMinute) {
-            return "Rate limit exceeded for user " + userId + " on " + apiKey;
-        }
-        producer.sendRequestEvent(userId, apiKey);
-        return "Access granted for user " + userId + " on " + apiKey;
+    @RateLimit(limitType = LimitType.CUSTOMER, key = "test", extKey = "#userId",
+            period = 60, count = 10000, message = "该用户操作过于频繁，请稍后再试")
+    public String handleRequest(String userId) {
+        return "Access granted for user " + userId;
     }
 }

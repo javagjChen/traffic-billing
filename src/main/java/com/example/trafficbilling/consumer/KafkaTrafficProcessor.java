@@ -1,4 +1,4 @@
-package com.example.trafficbilling.service;
+package com.example.trafficbilling.consumer;
 
 import jakarta.annotation.PostConstruct;
 import org.apache.kafka.common.serialization.Serdes;
@@ -23,14 +23,8 @@ public class KafkaTrafficProcessor {
     @Value("${spring.kafka.streams.input-topic}")
     private String inputTopic;
 
-    @Value("${spring.kafka.streams.output-topic}")
-    private String outputTopic;
-
-    private final RedisTrafficStorage redisStorage;
-
-    public KafkaTrafficProcessor(RedisTrafficStorage redisStorage) {
-        this.redisStorage = redisStorage;
-    }
+    @Value("${maxRequestPerMin}")
+    private Long maxRequestPerMin;
 
     @PostConstruct
     public void startStreamProcessor() {
@@ -53,15 +47,19 @@ public class KafkaTrafficProcessor {
                 })
                 .groupBy((key, value) -> value)
                 .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1)))
-                .count(Materialized.as("request-counts-store"))
-                .toStream().foreach((key, count) -> {
-                    // 将统计结果写入 Redis
+                .count(Materialized.as("rate-limiting-store"))
+                .toStream()
+                .foreach((key, count) -> {
                     String userApiKey = key.key();
-                    // 获取窗口起始时间（毫秒）
-                    long windowStartMillis = key.window().start();
+                    String[] split = userApiKey.split(":");
+                    String userId = split[0];
+                    String apiKey = split[1];
                     // 转换为分钟数
-                    long minutesSinceEpoch = Duration.ofMillis(windowStartMillis).toMinutes();
-                    redisStorage.storeRequestCount(userApiKey, String.valueOf(minutesSinceEpoch), count);
+                    if (count > maxRequestPerMin){
+                        System.out.println("Kafka Rate limit exceeded for user " + userId + " on " + apiKey);
+                    }else {
+                        System.out.println("Kafka Rate limit Access for user " + userId + " on " + apiKey);
+                    }
         });
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);

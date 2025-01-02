@@ -1,3 +1,4 @@
+maxRequestPerMin: 10000
 spring:
   application:
     name: traffic-billing
